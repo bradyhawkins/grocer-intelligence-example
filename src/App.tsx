@@ -1,830 +1,537 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
-const BEACON_BLUE = "#003366";
-const BEACON_LIGHT_BLUE = "#0066AA";
-const BEACON_GOLD = "#C8AA6E";
-const SCOREBOARD_BG = "#1a1a1a";
-
-// Tool colors
-const TOOL_COLORS = {
-  encounters: "#E53935",
-  conversions: "#FF9800",
-  impressions: "#4CAF50",
-  reputation: "#2196F3",
-  brand: "#9C27B0",
+const COLORS = {
+  bg: "#0B0F1A",
+  surface: "#111827",
+  surfaceLight: "#1A2236",
+  border: "#1E2A3F",
+  text: "#E2E8F0",
+  textMuted: "#8B9DC3",
+  accent: "#3B82F6",
+  accentGlow: "rgba(59,130,246,0.15)",
+  green: "#10B981",
+  greenMuted: "rgba(16,185,129,0.15)",
+  red: "#EF4444",
+  redMuted: "rgba(239,68,68,0.12)",
+  amber: "#F59E0B",
+  amberMuted: "rgba(245,158,11,0.12)",
+  purple: "#8B5CF6",
+  purpleMuted: "rgba(139,92,246,0.12)",
+  cyan: "#06B6D4",
 };
 
-// The Five Tools
-const fiveTools = [
-  {
-    id: "encounters",
-    tool: "Hitting for Average",
-    name: "Encounters",
-    color: TOOL_COLORS.encounters,
-    icon: "⚾",
-    weight: 25,
-    score: 81,
-    lastYear: 73,
-    rolling3: 84,
-    rolling3LY: 76,
-    trend: [68, 70, 72, 74, 73, 76, 78, 77, 79, 80, 80, 81],
-    subMetrics: [
-      { name: "Total Appointments", value: "4,280", target: "4,500", score: 85 },
-    ],
-    description: "Consistently getting patients in the door",
-  },
-  {
-    id: "conversions",
-    tool: "Hitting for Power",
-    name: "Conversions",
-    color: TOOL_COLORS.conversions,
-    icon: "💥",
-    weight: 25,
-    score: 78,
-    lastYear: 69,
-    rolling3: 82,
-    rolling3LY: 71,
-    trend: [62, 64, 66, 68, 70, 72, 71, 74, 75, 76, 77, 78],
-    subMetrics: [
-      { name: "Call Center Confirms", value: "1,840", target: "2,000", score: 82 },
-      { name: "Referral Conversions", value: "620", target: "700", score: 78 },
-      { name: "Web Click-to-Appt", value: "12.4%", target: "15%", score: 72 },
-      { name: "BeaconNOW Bookings", value: "385", target: "450", score: 74 },
-    ],
-    description: "Converting interest into confirmed appointments",
-  },
-  {
-    id: "impressions",
-    tool: "Speed",
-    name: "Quantifiable Impressions",
-    color: TOOL_COLORS.impressions,
-    icon: "⚡",
-    weight: 20,
-    score: 86,
-    lastYear: 78,
-    rolling3: 88,
-    rolling3LY: 80,
-    trend: [72, 74, 76, 78, 80, 82, 83, 84, 85, 85, 86, 86],
-    subMetrics: [
-      { name: "Web Traffic", value: "14,200", target: "15,000", score: 88 },
-      { name: "Display Ad Impressions", value: "1.2M", target: "1M", score: 95 },
-      { name: "Paid Search Clicks", value: "8,400", target: "9,000", score: 82 },
-      { name: "SEO Organic Sessions", value: "8,100", target: "9,500", score: 76 },
-      { name: "AIO Visibility", value: "68%", target: "75%", score: 80 },
-      { name: "Newsletter Opens", value: "32%", target: "28%", score: 92 },
-    ],
-    description: "Reach and speed — how fast you get in front of patients",
-  },
-  {
-    id: "reputation",
-    tool: "Fielding (Glove)",
-    name: "Social Climb / Reputation",
-    color: TOOL_COLORS.reputation,
-    icon: "🧤",
-    weight: 15,
-    score: 72,
-    lastYear: 70,
-    rolling3: 74,
-    rolling3LY: 71,
-    trend: [68, 69, 69, 70, 70, 71, 71, 70, 72, 71, 72, 72],
-    subMetrics: [
-      { name: "Overall Score", value: "4.3", target: "4.5", score: 78 },
-      { name: "Patient Surveys", value: "88%", target: "90%", score: 72 },
-      { name: "Meta/Google Reviews", value: "4.2★", target: "4.5★", score: 66 },
-    ],
-    description: "Defense — protecting your reputation in the field",
-  },
-  {
-    id: "brand",
-    tool: "Throwing (Arm)",
-    name: "Brand Awareness",
-    color: TOOL_COLORS.brand,
-    icon: "🎯",
-    weight: 15,
-    score: 68,
-    lastYear: 62,
-    rolling3: 71,
-    rolling3LY: 64,
-    trend: [58, 59, 60, 62, 63, 64, 65, 66, 66, 67, 68, 68],
-    subMetrics: [
-      { name: "Awareness Spend / Encounter", value: "$18.40", target: "$15.00", score: 72 },
-      { name: "HS Athletics Partnerships", value: "14", target: "20", score: 60 },
-      { name: "Signage Reach (est.)", value: "85K/mo", target: "100K", score: 74 },
-      { name: "Organic Social Engagement", value: "3.2%", target: "4%", score: 68 },
-      { name: "Google Business Profile Views", value: "42K", target: "50K", score: 72 },
-    ],
-    description: "Throwing your name out there — how far your brand carries",
-  },
+const stores = ["All Stores", "Oakwood Plaza", "Far Hills Ave", "Springboro"];
+
+const dailyRevenue = Array.from({ length: 30 }, (_, i) => {
+  const d = new Date(2026, 2, i + 1);
+  const day = d.getDay();
+  const base = day === 0 || day === 6 ? 42000 : 28000;
+  return {
+    date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    revenue: Math.round(base + Math.random() * 8000),
+    lastYear: Math.round(base * 0.91 + Math.random() * 6000),
+  };
+});
+
+const deptData = [
+  { dept: "Produce", revenue: 148200, margin: 38.2, shrink: 6.1, trend: 4.3 },
+  { dept: "Deli/Prep", revenue: 132800, margin: 52.1, shrink: 4.8, trend: 7.1 },
+  { dept: "Bakery", revenue: 89400, margin: 61.3, shrink: 3.2, trend: 2.8 },
+  { dept: "Meat & Seafood", revenue: 121600, margin: 29.7, shrink: 5.4, trend: -1.2 },
+  { dept: "Dairy", revenue: 97300, margin: 24.1, shrink: 7.8, trend: 1.1 },
+  { dept: "Center Store", revenue: 203500, margin: 22.4, shrink: 1.2, trend: -0.4 },
+  { dept: "Wine & Beer", revenue: 78900, margin: 33.8, shrink: 0.4, trend: 9.2 },
+  { dept: "Floral", revenue: 24100, margin: 58.7, shrink: 12.1, trend: 3.5 },
 ];
 
-// Calculate overall composite
-const overallScore = fiveTools.reduce((sum, t) => sum + t.score * (t.weight / 100), 0);
-const overallLastYear = fiveTools.reduce((sum, t) => sum + t.lastYear * (t.weight / 100), 0);
-const overall3Mo = fiveTools.reduce((sum, t) => sum + t.rolling3 * (t.weight / 100), 0);
-const overall3MoLY = fiveTools.reduce((sum, t) => sum + t.rolling3LY * (t.weight / 100), 0);
-
-const monthlyOverall = [
-  { month: "Mar", score: 68.2, lastYear: 64.1 },
-  { month: "Apr", score: 70.1, lastYear: 65.8 },
-  { month: "May", score: 72.0, lastYear: 66.9 },
-  { month: "Jun", score: 73.4, lastYear: 68.0 },
-  { month: "Jul", score: 74.1, lastYear: 68.8 },
-  { month: "Aug", score: 75.6, lastYear: 69.2 },
-  { month: "Sep", score: 76.2, lastYear: 70.0 },
-  { month: "Oct", score: 76.8, lastYear: 70.4 },
-  { month: "Nov", score: 77.5, lastYear: 71.1 },
-  { month: "Dec", score: 78.0, lastYear: 71.5 },
-  { month: "Jan", score: 78.6, lastYear: 72.0 },
-  { month: "Feb", score: 79.2, lastYear: 72.4 },
+const loyaltySegments = [
+  { name: "Champions", value: 2840, color: COLORS.green, spend: "$312/mo" },
+  { name: "Loyal", value: 5120, color: COLORS.accent, spend: "$187/mo" },
+  { name: "At Risk", value: 3200, color: COLORS.amber, spend: "$94/mo" },
+  { name: "Lapsed", value: 4100, color: COLORS.red, spend: "$0" },
 ];
 
-function getColor(score, reference = null) {
-  if (reference != null) {
-    const pctChange = ((score - reference) / reference) * 100;
-    if (pctChange >= 5) return "#4CAF50";
-    if (pctChange <= -5) return "#E53935";
-    return "#FFC107";
-  }
-  if (score >= 80) return "#4CAF50";
-  if (score >= 65) return "#FFC107";
-  return "#E53935";
-}
+const promoData = [
+  { promo: "BOGO Avocados", lift: 34, roi: 2.8, incremental: 4200 },
+  { promo: "20% Off Wine", lift: 28, roi: 3.1, incremental: 6800 },
+  { promo: "Family Meal Deal", lift: 42, roi: 4.2, incremental: 8900 },
+  { promo: "Bakery Sampler", lift: 18, roi: 1.4, incremental: 1900 },
+  { promo: "Loyalty 2x Points", lift: 22, roi: 2.1, incremental: 5100 },
+];
 
-function getGrade(score) {
-  if (score >= 80) return { label: "ELITE", tier: "80 Grade" };
-  if (score >= 65) return { label: "PLUS", tier: "60 Grade" };
-  return { label: "NEEDS WORK", tier: "40 Grade" };
-}
+const laborData = [
+  { hour: "6a", demand: 12, staffed: 14 },
+  { hour: "7a", demand: 18, staffed: 14 },
+  { hour: "8a", demand: 28, staffed: 22 },
+  { hour: "9a", demand: 35, staffed: 30 },
+  { hour: "10a", demand: 42, staffed: 34 },
+  { hour: "11a", demand: 55, staffed: 38 },
+  { hour: "12p", demand: 62, staffed: 44 },
+  { hour: "1p", demand: 58, staffed: 44 },
+  { hour: "2p", demand: 45, staffed: 40 },
+  { hour: "3p", demand: 50, staffed: 36 },
+  { hour: "4p", demand: 58, staffed: 38 },
+  { hour: "5p", demand: 68, staffed: 42 },
+  { hour: "6p", demand: 72, staffed: 46 },
+  { hour: "7p", demand: 52, staffed: 42 },
+  { hour: "8p", demand: 30, staffed: 34 },
+  { hour: "9p", demand: 15, staffed: 20 },
+];
 
-function getOverallLabel(score) {
-  if (score >= 85) return "5-TOOL SUPERSTAR";
-  if (score >= 78) return "ALL-STAR";
-  if (score >= 70) return "EVERYDAY STARTER";
-  if (score >= 60) return "UTILITY PLAYER";
-  return "DEVELOPING PROSPECT";
-}
+const storeComparison = [
+  { metric: "Sales/Sq Ft", oakwood: "$18.40", farHills: "$22.10", springboro: "$14.80" },
+  { metric: "Avg Basket", oakwood: "$47.20", farHills: "$62.80", springboro: "$38.90" },
+  { metric: "Labor %", oakwood: "24.1%", farHills: "21.3%", springboro: "27.8%" },
+  { metric: "Shrink %", oakwood: "3.8%", farHills: "2.9%", springboro: "5.1%" },
+  { metric: "Loyalty Pen.", oakwood: "61%", farHills: "74%", springboro: "52%" },
+];
 
-function Sparkline({ data, width = 120, height = 32, color = BEACON_GOLD }) {
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = max - min || 1;
-  const points = data
-    .map((v, i) => {
-      const x = (i / (data.length - 1)) * width;
-      const y = height - ((v - min) / range) * (height - 4) - 2;
-      return `${x},${y}`;
-    })
-    .join(" ");
-  return (
-    <svg width={width} height={height} style={{ display: "block" }}>
-      <polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={width} cy={height - ((data[data.length - 1] - min) / range) * (height - 4) - 2} r="3" fill={color} />
-    </svg>
-  );
-}
-
-function TrendArrow({ current, previous }) {
-  const pctChange = ((current - previous) / previous) * 100;
-  const color = getColor(current, previous);
-  const arrow = pctChange >= 0 ? "▲" : "▼";
-  return (
-    <span style={{ color, fontSize: "13px", fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>
-      {arrow} {Math.abs(pctChange).toFixed(1)}%
-    </span>
-  );
-}
-
-function StatusDot({ score, reference = null, size = 10 }) {
-  const color = reference != null ? getColor(score, reference) : getColor(score);
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        backgroundColor: color,
-        boxShadow: `0 0 6px ${color}66`,
-      }}
-    />
-  );
-}
-
-// Pentagon / Radar chart for the 5 tools
-function RadarChart({ tools, size = 280 }) {
-  const pad = 55;
-  const fullSize = size + pad * 2;
-  const cx = fullSize / 2;
-  const cy = fullSize / 2;
-  const r = size * 0.35;
-  const angles = tools.map((_, i) => (Math.PI * 2 * i) / tools.length - Math.PI / 2);
-
-  const getPoint = (angle, value) => ({
-    x: cx + Math.cos(angle) * r * (value / 100),
-    y: cy + Math.sin(angle) * r * (value / 100),
-  });
-
-  const gridLevels = [20, 40, 60, 80, 100];
-
-  const currentPoints = tools.map((t, i) => getPoint(angles[i], t.score));
-  const lastYearPoints = tools.map((t, i) => getPoint(angles[i], t.lastYear));
-
-  const currentPath = currentPoints.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ") + " Z";
-  const lastYearPath = lastYearPoints.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ") + " Z";
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${fullSize} ${fullSize}`}>
-      {/* Grid */}
-      {gridLevels.map((level) => {
-        const pts = angles.map((a) => getPoint(a, level));
-        const path = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ") + " Z";
-        return <path key={level} d={path} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />;
-      })}
-
-      {/* Axis lines */}
-      {angles.map((a, i) => (
-        <line key={i} x1={cx} y1={cy} x2={cx + Math.cos(a) * r} y2={cy + Math.sin(a) * r} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-      ))}
-
-      {/* Last year area */}
-      <path d={lastYearPath} fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" strokeDasharray="4,4" />
-
-      {/* Current area */}
-      <path d={currentPath} fill={`${BEACON_GOLD}18`} stroke={BEACON_GOLD} strokeWidth="2" />
-
-      {/* Data points */}
-      {currentPoints.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="5" fill={tools[i].color} stroke="#fff" strokeWidth="1.5" />
-      ))}
-
-      {/* Labels */}
-      {tools.map((t, i) => {
-        const labelR = r + 28;
-        const x = cx + Math.cos(angles[i]) * labelR;
-        const y = cy + Math.sin(angles[i]) * labelR;
-        return (
-          <g key={t.id}>
-            <text
-              x={x}
-              y={y - 6}
-              fill={t.color}
-              fontSize="10"
-              fontFamily="'Oswald', sans-serif"
-              fontWeight="600"
-              textAnchor="middle"
-              style={{ textTransform: "uppercase", letterSpacing: "1px" }}
-            >
-              {t.icon} {t.name.split("/")[0].trim()}
-            </text>
-            <text x={x} y={y + 8} fill="rgba(255,255,255,0.6)" fontSize="12" fontFamily="'DM Mono', monospace" fontWeight="700" textAnchor="middle">
-              {t.score}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
-
-function TrendChart({ data, width = "100%", height = 200 }) {
-  const chartW = 600;
-  const chartH = 160;
-  const padding = { top: 10, right: 20, bottom: 30, left: 45 };
-  const innerW = chartW - padding.left - padding.right;
-  const innerH = chartH - padding.top - padding.bottom;
-
-  const allVals = [...data.map((d) => d.score), ...data.map((d) => d.lastYear)];
-  const maxVal = Math.max(...allVals);
-  const minVal = Math.min(...allVals);
-  const range = maxVal - minVal || 10;
-
-  const getX = (i) => padding.left + (i / (data.length - 1)) * innerW;
-  const getY = (v) => padding.top + innerH - ((v - minVal + 2) / (range + 4)) * innerH;
-
-  const thisYearPath = data.map((d, i) => `${i === 0 ? "M" : "L"}${getX(i)},${getY(d.score)}`).join(" ");
-  const lastYearPath = data.map((d, i) => `${i === 0 ? "M" : "L"}${getX(i)},${getY(d.lastYear)}`).join(" ");
-
-  const areaPath =
-    thisYearPath +
-    data
-      .slice()
-      .reverse()
-      .map((d, i) => `L${getX(data.length - 1 - i)},${getY(d.lastYear)}`)
-      .join("") +
-    " Z";
-
-  return (
-    <svg viewBox={`0 0 ${chartW} ${chartH}`} style={{ width, height, display: "block" }}>
-      <defs>
-        <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={BEACON_GOLD} stopOpacity="0.2" />
-          <stop offset="100%" stopColor={BEACON_GOLD} stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
-      {[65, 70, 75, 80].map((v) => {
-        if (v < minVal - 2 || v > maxVal + 2) return null;
-        return (
-          <g key={v}>
-            <line x1={padding.left} y1={getY(v)} x2={chartW - padding.right} y2={getY(v)} stroke="rgba(255,255,255,0.06)" strokeDasharray="4,4" />
-            <text x={padding.left - 6} y={getY(v) + 4} fill="rgba(255,255,255,0.3)" fontSize="10" textAnchor="end" fontFamily="'DM Mono', monospace">
-              {v}
-            </text>
-          </g>
-        );
-      })}
-      {data.map((d, i) => (
-        <text key={d.month} x={getX(i)} y={chartH - 4} fill="rgba(255,255,255,0.4)" fontSize="9" textAnchor="middle" fontFamily="'DM Mono', monospace">
-          {d.month}
-        </text>
-      ))}
-      <path d={areaPath} fill="url(#areaFill)" />
-      <path d={lastYearPath} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeDasharray="6,4" />
-      <path d={thisYearPath} fill="none" stroke={BEACON_GOLD} strokeWidth="2.5" />
-      {data.map((d, i) => (
-        <circle key={i} cx={getX(i)} cy={getY(d.score)} r="3" fill={BEACON_GOLD} />
-      ))}
-      <circle cx={getX(data.length - 1)} cy={getY(data[data.length - 1].score)} r="5" fill={BEACON_GOLD} stroke="#fff" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-// Sub-metric bar
-function MetricBar({ metric, color }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 0" }}>
-      <div style={{ flex: "0 0 180px", fontFamily: "'DM Sans', sans-serif", fontSize: "12px", color: "rgba(255,255,255,0.6)" }}>
-        {metric.name}
-      </div>
-      <div style={{ flex: 1, position: "relative", height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 3 }}>
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            height: "100%",
-            width: `${Math.min(metric.score, 100)}%`,
-            background: `linear-gradient(90deg, ${color}88, ${color})`,
-            borderRadius: 3,
-            transition: "width 1s ease-out",
-          }}
-        />
-      </div>
-      <div style={{ flex: "0 0 40px", textAlign: "right", fontFamily: "'DM Mono', monospace", fontSize: "12px", fontWeight: 600, color: getColor(metric.score) }}>
-        {metric.score}
-      </div>
-      <div style={{ flex: "0 0 90px", textAlign: "right", fontFamily: "'DM Mono', monospace", fontSize: "10px", color: "rgba(255,255,255,0.35)" }}>
-        {metric.value} / {metric.target}
-      </div>
+const KPI = ({ label, value, change, prefix = "", suffix = "" }) => (
+  <div style={{
+    background: COLORS.surface,
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: 10,
+    padding: "18px 20px",
+    flex: 1,
+    minWidth: 160,
+  }}>
+    <div style={{ fontSize: 11, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{label}</div>
+    <div style={{ fontSize: 26, fontWeight: 700, color: COLORS.text, fontFamily: "'DM Sans', sans-serif" }}>
+      {prefix}{value}{suffix}
     </div>
-  );
-}
+    {change !== undefined && (
+      <div style={{ fontSize: 12, marginTop: 4, color: change >= 0 ? COLORS.green : COLORS.red, display: "flex", alignItems: "center", gap: 3 }}>
+        {change >= 0 ? "▲" : "▼"} {Math.abs(change)}% vs last year
+      </div>
+    )}
+  </div>
+);
 
-export default function BeaconDashboard() {
-  const [activeTab, setActiveTab] = useState("scouting");
-  const [expandedTool, setExpandedTool] = useState(null);
-  const [animatedScore, setAnimatedScore] = useState(0);
+const SectionHeader = ({ icon, title, subtitle }) => (
+  <div style={{ marginBottom: 16 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+      <span style={{ fontSize: 16 }}>{icon}</span>
+      <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.text }}>{title}</span>
+    </div>
+    {subtitle && <div style={{ fontSize: 11, color: COLORS.textMuted, marginLeft: 24 }}>{subtitle}</div>}
+  </div>
+);
 
-  useEffect(() => {
-    const target = overallScore;
-    const duration = 1500;
-    const startTime = Date.now();
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setAnimatedScore(target * eased);
-      if (progress < 1) requestAnimationFrame(animate);
-    };
-    requestAnimationFrame(animate);
-  }, []);
+const tabs = [
+  { id: "overview", label: "Overview", icon: "◈" },
+  { id: "departments", label: "Departments", icon: "▦" },
+  { id: "customers", label: "Customers", icon: "◉" },
+  { id: "promos", label: "Promotions", icon: "⚡" },
+  { id: "labor", label: "Labor", icon: "⏱" },
+  { id: "stores", label: "Stores", icon: "⊞" },
+];
+
+const customTooltipStyle = {
+  background: COLORS.surfaceLight,
+  border: `1px solid ${COLORS.border}`,
+  borderRadius: 8,
+  padding: "8px 12px",
+  fontSize: 12,
+  color: COLORS.text,
+};
+
+export default function GroceryDashboard() {
+  const [activeTab, setActiveTab] = useState("overview");
+  const [store, setStore] = useState("All Stores");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: `linear-gradient(180deg, ${BEACON_BLUE} 0%, #001a33 40%, ${SCOREBOARD_BG} 100%)`,
-        fontFamily: "'DM Sans', sans-serif",
-        color: "#fff",
-        padding: 0,
-        margin: 0,
-      }}
-    >
-      <link
-        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Oswald:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
-      <style>{`
-        @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes slideIn { from { opacity:0; transform:translateX(-12px); } to { opacity:1; transform:translateX(0); } }
-        .fade-up { animation: fadeUp 0.6s ease-out forwards; opacity:0; }
-        .slide-in { animation: slideIn 0.4s ease-out forwards; opacity:0; }
-        .delay-1 { animation-delay:0.1s; } .delay-2 { animation-delay:0.2s; } .delay-3 { animation-delay:0.3s; }
-        .delay-4 { animation-delay:0.4s; } .delay-5 { animation-delay:0.5s; } .delay-6 { animation-delay:0.6s; }
-        .tab-btn { cursor:pointer; border:none; padding:10px 20px; font-size:13px; font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:2px; transition:all 0.3s; border-radius:4px; }
-        .tab-btn:hover { background:rgba(200,170,110,0.15) !important; }
-        .tool-card:hover { border-color:rgba(200,170,110,0.3) !important; }
-        * { box-sizing:border-box; }
-      `}</style>
+    <div style={{
+      background: COLORS.bg,
+      minHeight: "100vh",
+      fontFamily: "'DM Sans', sans-serif",
+      color: COLORS.text,
+      opacity: mounted ? 1 : 0,
+      transition: "opacity 0.5s ease",
+    }}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-      {/* Header */}
-      <header
-        className="fade-up"
-        style={{
-          padding: "24px 32px 16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          borderBottom: "1px solid rgba(200,170,110,0.15)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: "50%",
-              background: `linear-gradient(135deg, ${BEACON_BLUE}, ${BEACON_LIGHT_BLUE})`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              border: `2px solid ${BEACON_GOLD}`,
-              fontSize: "22px",
-              fontWeight: 700,
-              fontFamily: "'Oswald', sans-serif",
-              color: BEACON_GOLD,
-            }}
-          >
-            B
-          </div>
+      {/* Top Bar */}
+      <div style={{
+        background: COLORS.surface,
+        borderBottom: `1px solid ${COLORS.border}`,
+        padding: "12px 28px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 8,
+            background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.cyan})`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 14, fontWeight: 800, color: "#fff",
+          }}>R</div>
           <div>
-            <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: "22px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px" }}>
-              Beacon Orthopaedics
-            </div>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "11px", color: BEACON_GOLD, letterSpacing: "2px", textTransform: "uppercase" }}>
-              Five-Tool Player — Marketing Analytics
-            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.02em" }}>ReadyUp Connect</div>
+            <div style={{ fontSize: 10, color: COLORS.textMuted, letterSpacing: "0.05em" }}>GROCERY INTELLIGENCE SUITE</div>
           </div>
         </div>
-        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "rgba(255,255,255,0.4)", textAlign: "right" }}>
-          <div>2025 Season</div>
-          <div style={{ color: BEACON_GOLD }}>Updated Feb 25, 2026</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <select value={store} onChange={e => setStore(e.target.value)} style={{
+            background: COLORS.surfaceLight, border: `1px solid ${COLORS.border}`,
+            borderRadius: 6, padding: "6px 10px", color: COLORS.text, fontSize: 12, cursor: "pointer",
+          }}>
+            {stores.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <div style={{
+            background: COLORS.surfaceLight, border: `1px solid ${COLORS.border}`,
+            borderRadius: 6, padding: "6px 10px", fontSize: 12, color: COLORS.textMuted,
+          }}>Mar 1 – Mar 30, 2026</div>
         </div>
-      </header>
+      </div>
 
-      {/* Tabs */}
-      <nav className="fade-up delay-1" style={{ padding: "16px 32px", display: "flex", gap: 8 }}>
-        {[
-          { id: "scouting", label: "⬥ Scouting Report" },
-          { id: "tools", label: "⬥ The Five Tools" },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            className="tab-btn"
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              background: activeTab === tab.id ? "rgba(200,170,110,0.2)" : "transparent",
-              color: activeTab === tab.id ? BEACON_GOLD : "rgba(255,255,255,0.5)",
-              fontWeight: activeTab === tab.id ? 600 : 400,
-              border: activeTab === tab.id ? "1px solid rgba(200,170,110,0.3)" : "1px solid transparent",
-            }}
-          >
-            {tab.label}
+      {/* Tab Nav */}
+      <div style={{
+        display: "flex", gap: 2, padding: "10px 28px",
+        borderBottom: `1px solid ${COLORS.border}`,
+        background: COLORS.surface,
+        overflowX: "auto",
+      }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+            background: activeTab === t.id ? COLORS.accentGlow : "transparent",
+            border: activeTab === t.id ? `1px solid ${COLORS.accent}40` : "1px solid transparent",
+            borderRadius: 6, padding: "7px 14px", cursor: "pointer",
+            color: activeTab === t.id ? COLORS.accent : COLORS.textMuted,
+            fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 6,
+            transition: "all 0.2s",
+            whiteSpace: "nowrap",
+          }}>
+            <span style={{ fontSize: 13 }}>{t.icon}</span> {t.label}
           </button>
         ))}
-      </nav>
+      </div>
 
-      <div style={{ padding: "0 32px 48px" }}>
-        {/* SCOUTING REPORT TAB */}
-        {activeTab === "scouting" && (
+      {/* Content */}
+      <div style={{ padding: "24px 28px", maxWidth: 1200, margin: "0 auto" }}>
+
+        {activeTab === "overview" && (
           <div>
-            {/* Hero Section */}
-            <div
-              className="fade-up delay-2"
-              style={{
-                background: "linear-gradient(135deg, #111 0%, #1a1a1a 50%, #222 100%)",
-                borderRadius: 16,
-                padding: "40px 48px",
-                border: "1px solid rgba(200,170,110,0.15)",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
-                position: "relative",
-                overflow: "hidden",
-                marginBottom: 24,
-              }}
-            >
-              <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(200,170,110,0.08) 0%, transparent 70%)" }} />
-
-              <div style={{ position: "relative", zIndex: 1, display: "flex", gap: 48, alignItems: "center" }}>
-                {/* Left: Overall Score */}
-                <div style={{ flex: "0 0 auto" }}>
-                  <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: "12px", textTransform: "uppercase", letterSpacing: "4px", color: BEACON_GOLD, marginBottom: 8 }}>
-                    Overall Scouting Grade
-                  </div>
-                  <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 8 }}>
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "72px", fontWeight: 700, color: "#fff", letterSpacing: "2px", textShadow: "0 0 30px rgba(200,170,110,0.3)", lineHeight: 1 }}>
-                      {animatedScore.toFixed(1)}
-                    </span>
-                    <div style={{ marginBottom: 8 }}>
-                      <StatusDot score={overallScore} size={14} />
-                      <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: "11px", color: getColor(overallScore), letterSpacing: "2px", fontWeight: 600, marginTop: 4 }}>
-                        {getOverallLabel(overallScore)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Rolling averages */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 24 }}>
-                    <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "16px 20px", border: "1px solid rgba(255,255,255,0.06)" }}>
-                      <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: "9px", textTransform: "uppercase", letterSpacing: "3px", color: "rgba(255,255,255,0.35)", marginBottom: 8 }}>
-                        Rolling 12-Month
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "28px", fontWeight: 700, color: "#fff" }}>
-                          {overallScore.toFixed(1)}
-                        </span>
-                        <TrendArrow current={overallScore} previous={overallLastYear} />
-                      </div>
-                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: "rgba(255,255,255,0.25)", marginTop: 4 }}>
-                        vs {overallLastYear.toFixed(1)} same period LY
-                      </div>
-                    </div>
-                    <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "16px 20px", border: "1px solid rgba(255,255,255,0.06)" }}>
-                      <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: "9px", textTransform: "uppercase", letterSpacing: "3px", color: "rgba(255,255,255,0.35)", marginBottom: 8 }}>
-                        Rolling 3-Month
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "28px", fontWeight: 700, color: "#fff" }}>
-                          {overall3Mo.toFixed(1)}
-                        </span>
-                        <TrendArrow current={overall3Mo} previous={overall3MoLY} />
-                      </div>
-                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: "rgba(255,255,255,0.25)", marginTop: 4 }}>
-                        vs {overall3MoLY.toFixed(1)} same period LY
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right: Radar Chart */}
-                <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-                  <RadarChart tools={fiveTools} size={300} />
-                </div>
-              </div>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 24 }}>
+              <KPI label="Total Revenue" value="895.8K" prefix="$" change={4.2} />
+              <KPI label="Transactions" value="19,240" change={2.1} />
+              <KPI label="Avg Basket" value="46.54" prefix="$" change={1.8} />
+              <KPI label="Gross Margin" value="34.2" suffix="%" change={0.6} />
+              <KPI label="Shrink Rate" value="3.9" suffix="%" change={-0.8} />
             </div>
-
-            {/* Tool Summary Cards */}
-            <div className="fade-up delay-3" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 24 }}>
-              {fiveTools.map((tool) => {
-                const grade = getGrade(tool.score);
-                return (
-                  <div
-                    key={tool.id}
-                    style={{
-                      background: "rgba(255,255,255,0.02)",
-                      borderRadius: 12,
-                      padding: "20px 16px",
-                      border: `1px solid ${tool.color}33`,
-                      borderTop: `3px solid ${tool.color}`,
-                      textAlign: "center",
-                    }}
-                  >
-                    <div style={{ fontSize: "20px", marginBottom: 4 }}>{tool.icon}</div>
-                    <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: "10px", textTransform: "uppercase", letterSpacing: "1.5px", color: tool.color, marginBottom: 2 }}>
-                      {tool.tool}
-                    </div>
-                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: "rgba(255,255,255,0.4)", marginBottom: 12 }}>
-                      {tool.name}
-                    </div>
-                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "28px", fontWeight: 700, color: getColor(tool.score), lineHeight: 1, marginBottom: 4 }}>
-                      {tool.score}
-                    </div>
-                    <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: "9px", textTransform: "uppercase", letterSpacing: "1.5px", color: getColor(tool.score), fontWeight: 600, marginBottom: 8 }}>
-                      {grade.label}
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "center", gap: 4, alignItems: "center" }}>
-                      <TrendArrow current={tool.score} previous={tool.lastYear} />
-                    </div>
-                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "9px", color: "rgba(255,255,255,0.2)", marginTop: 4 }}>
-                      Weight: {tool.weight}%
-                    </div>
-                  </div>
-                );
-              })}
+            <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20, marginBottom: 24 }}>
+              <SectionHeader icon="📈" title="Daily Revenue" subtitle="Current year vs. prior year" />
+              <ResponsiveContainer width="100%" height={260}>
+                <AreaChart data={dailyRevenue}>
+                  <defs>
+                    <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={COLORS.accent} stopOpacity={0.25} />
+                      <stop offset="100%" stopColor={COLORS.accent} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+                  <XAxis dataKey="date" tick={{ fill: COLORS.textMuted, fontSize: 10 }} tickLine={false} interval={4} />
+                  <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                  <Tooltip contentStyle={customTooltipStyle} formatter={v => [`$${v.toLocaleString()}`, ""]} />
+                  <Area type="monotone" dataKey="lastYear" stroke={COLORS.textMuted} strokeWidth={1.5} strokeDasharray="4 3" fill="none" name="Last Year" />
+                  <Area type="monotone" dataKey="revenue" stroke={COLORS.accent} strokeWidth={2} fill="url(#gRev)" name="This Year" />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
-
-            {/* Season Trend */}
-            <div className="fade-up delay-4" style={{ background: "rgba(255,255,255,0.02)", borderRadius: 16, padding: "28px 32px", border: "1px solid rgba(255,255,255,0.06)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: "13px", textTransform: "uppercase", letterSpacing: "3px", color: "rgba(255,255,255,0.5)" }}>
-                  Overall Season Trend
-                </div>
-                <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 16, height: 2, background: BEACON_GOLD, borderRadius: 1 }} />
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: "rgba(255,255,255,0.4)" }}>This Year</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 16, height: 0, borderTop: "2px dashed rgba(255,255,255,0.25)" }} />
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: "rgba(255,255,255,0.4)" }}>Last Year</span>
-                  </div>
-                </div>
-              </div>
-              <TrendChart data={monthlyOverall} />
-            </div>
-          </div>
-        )}
-
-        {/* THE FIVE TOOLS TAB */}
-        {activeTab === "tools" && (
-          <div>
-            <div className="fade-up delay-1" style={{ fontFamily: "'Oswald', sans-serif", fontSize: "13px", textTransform: "uppercase", letterSpacing: "3px", color: "rgba(255,255,255,0.4)", marginBottom: 20 }}>
-              The Five Tools — Detailed Breakdown
-            </div>
-
-            {fiveTools.map((tool, idx) => {
-              const grade = getGrade(tool.score);
-              const isExpanded = expandedTool === tool.id;
-              return (
-                <div
-                  key={tool.id}
-                  className={`tool-card fade-up delay-${idx + 1}`}
-                  style={{
-                    background: "rgba(255,255,255,0.02)",
-                    borderRadius: 14,
-                    marginBottom: 16,
-                    border: `1px solid ${isExpanded ? tool.color + "44" : "rgba(255,255,255,0.06)"}`,
-                    overflow: "hidden",
-                    transition: "all 0.3s",
-                    cursor: "pointer",
-                  }}
-                  onClick={() => setExpandedTool(isExpanded ? null : tool.id)}
-                >
-                  {/* Tool Header */}
-                  <div
-                    style={{
-                      padding: "20px 24px",
-                      display: "grid",
-                      gridTemplateColumns: "44px 1fr 100px 80px 130px 120px 30px",
-                      alignItems: "center",
-                      gap: 16,
-                      borderLeft: `4px solid ${tool.color}`,
-                    }}
-                  >
-                    <div style={{ fontSize: "28px", textAlign: "center" }}>{tool.icon}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20 }}>
+                <SectionHeader icon="🏷️" title="Top Promos This Period" subtitle="By incremental revenue" />
+                {promoData.slice(0, 3).map((p, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: i < 2 ? `1px solid ${COLORS.border}` : "none" }}>
                     <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontFamily: "'Oswald', sans-serif", fontSize: "15px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px" }}>
-                          {tool.name}
-                        </span>
-                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: tool.color, background: `${tool.color}15`, padding: "2px 8px", borderRadius: 4 }}>
-                          {tool.tool}
-                        </span>
-                      </div>
-                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "11px", color: "rgba(255,255,255,0.35)", marginTop: 2 }}>
-                        {tool.description}
-                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{p.promo}</div>
+                      <div style={{ fontSize: 11, color: COLORS.textMuted }}>{p.lift}% lift · {p.roi}x ROI</div>
                     </div>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "24px", fontWeight: 700, color: getColor(tool.score), lineHeight: 1 }}>
-                        {tool.score}
-                      </div>
-                      <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: "8px", textTransform: "uppercase", letterSpacing: "1.5px", color: getColor(tool.score), fontWeight: 600, marginTop: 2 }}>
-                        {grade.label} · {grade.tier}
-                      </div>
-                    </div>
-                    <div style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: "12px", color: "rgba(255,255,255,0.35)" }}>
-                      {tool.weight}%
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "center" }}>
-                      <Sparkline data={tool.trend} color={tool.color} />
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <TrendArrow current={tool.score} previous={tool.lastYear} />
-                    </div>
-                    <div style={{ textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: "14px", transition: "transform 0.3s", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>
-                      ▼
-                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.green }}>+${p.incremental.toLocaleString()}</div>
                   </div>
-
-                  {/* Expanded detail */}
-                  {isExpanded && (
-                    <div style={{ padding: "0 24px 24px 72px", borderTop: `1px solid ${tool.color}22` }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 32, paddingTop: 20 }}>
-                        {/* Sub-metrics */}
-                        <div>
-                          <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: "10px", textTransform: "uppercase", letterSpacing: "2px", color: "rgba(255,255,255,0.3)", marginBottom: 12 }}>
-                            Component Metrics
-                          </div>
-                          {tool.subMetrics.map((m, i) => (
-                            <div key={i} className="slide-in" style={{ animationDelay: `${i * 0.05}s` }}>
-                              <MetricBar metric={m} color={tool.color} />
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Rolling averages */}
-                        <div>
-                          <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: "10px", textTransform: "uppercase", letterSpacing: "2px", color: "rgba(255,255,255,0.3)", marginBottom: 12 }}>
-                            Rolling Averages
-                          </div>
-                          <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "16px", border: "1px solid rgba(255,255,255,0.05)", marginBottom: 10 }}>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "9px", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 6 }}>
-                              12-Month Rolling
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "20px", fontWeight: 700, color: "#fff" }}>{tool.score}</span>
-                              <TrendArrow current={tool.score} previous={tool.lastYear} />
-                            </div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "9px", color: "rgba(255,255,255,0.2)", marginTop: 2 }}>
-                              vs {tool.lastYear} LY
-                            </div>
-                          </div>
-                          <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "16px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "9px", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 6 }}>
-                              3-Month Rolling
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "20px", fontWeight: 700, color: "#fff" }}>{tool.rolling3}</span>
-                              <TrendArrow current={tool.rolling3} previous={tool.rolling3LY} />
-                            </div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "9px", color: "rgba(255,255,255,0.2)", marginTop: 2 }}>
-                              vs {tool.rolling3LY} LY
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {/* Formula */}
-            <div
-              className="fade-up delay-6"
-              style={{
-                marginTop: 8,
-                background: "rgba(200,170,110,0.05)",
-                borderRadius: 12,
-                padding: "20px 24px",
-                border: "1px solid rgba(200,170,110,0.1)",
-                fontFamily: "'DM Mono', monospace",
-                fontSize: "12px",
-                color: "rgba(255,255,255,0.5)",
-                lineHeight: 1.8,
-              }}
-            >
-              <span style={{ color: BEACON_GOLD }}>Overall Grade</span> = (Encounters × .25) + (Conversions × .25) + (Impressions × .20) + (Reputation × .15) + (Brand × .15)
-              <br />
-              <span style={{ color: "rgba(255,255,255,0.3)" }}>
-                = ({fiveTools[0].score} × .25) + ({fiveTools[1].score} × .25) + ({fiveTools[2].score} × .20) + ({fiveTools[3].score} × .15) + ({fiveTools[4].score} × .15)
-              </span>
-              <br />
-              <span style={{ color: BEACON_GOLD }}>= {overallScore.toFixed(1)}</span>
+                ))}
+              </div>
+              <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20 }}>
+                <SectionHeader icon="⚠️" title="Alerts" subtitle="Requires attention" />
+                {[
+                  { msg: "Dairy shrink rate 7.8% — above 5% threshold", level: "red" },
+                  { msg: "Springboro labor cost 27.8% — highest across stores", level: "amber" },
+                  { msg: "4,100 loyalty members lapsed (>90 days inactive)", level: "amber" },
+                ].map((a, i) => (
+                  <div key={i} style={{
+                    background: a.level === "red" ? COLORS.redMuted : COLORS.amberMuted,
+                    borderLeft: `3px solid ${a.level === "red" ? COLORS.red : COLORS.amber}`,
+                    borderRadius: 6, padding: "8px 12px", marginBottom: 8, fontSize: 12, color: COLORS.text,
+                  }}>{a.msg}</div>
+                ))}
+              </div>
             </div>
           </div>
         )}
 
-        {/* Footer Legend */}
-        <div
-          className="fade-up delay-6"
-          style={{
-            marginTop: 40,
-            padding: "20px 24px",
-            background: "rgba(255,255,255,0.02)",
-            borderRadius: 12,
-            border: "1px solid rgba(255,255,255,0.04)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 16,
-          }}
-        >
-          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-            {[
-              { label: "Elite (80+)", score: 85 },
-              { label: "Plus (65–79)", score: 70 },
-              { label: "Needs Work (<65)", score: 40 },
-            ].map((item) => (
-              <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <StatusDot score={item.score} size={8} />
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: "rgba(255,255,255,0.4)" }}>{item.label}</span>
-              </div>
-            ))}
-            <span style={{ color: "rgba(255,255,255,0.15)", margin: "0 4px" }}>|</span>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: "rgba(255,255,255,0.3)" }}>
-              Grading Scale: 80 = MLB Scout Grade (20–80 scale mapped to 0–100)
+        {activeTab === "departments" && (
+          <div>
+            <SectionHeader icon="▦" title="Department Performance" subtitle="Revenue, margin, and shrink by department" />
+            <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, overflow: "hidden" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                    {["Department", "Revenue", "Margin %", "Shrink %", "YoY Trend"].map(h => (
+                      <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {deptData.map((d, i) => (
+                    <tr key={i} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                      <td style={{ padding: "12px 16px", fontWeight: 600 }}>{d.dept}</td>
+                      <td style={{ padding: "12px 16px", fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>${d.revenue.toLocaleString()}</td>
+                      <td style={{ padding: "12px 16px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ width: 60, height: 6, background: COLORS.surfaceLight, borderRadius: 3, overflow: "hidden" }}>
+                            <div style={{ width: `${d.margin}%`, height: "100%", background: d.margin > 40 ? COLORS.green : COLORS.accent, borderRadius: 3 }} />
+                          </div>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{d.margin}%</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px 16px", color: d.shrink > 5 ? COLORS.red : d.shrink > 3 ? COLORS.amber : COLORS.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+                        {d.shrink}%
+                      </td>
+                      <td style={{ padding: "12px 16px", color: d.trend >= 0 ? COLORS.green : COLORS.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+                        {d.trend >= 0 ? "▲" : "▼"} {Math.abs(d.trend)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ marginTop: 20, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20 }}>
+              <SectionHeader icon="📊" title="Revenue by Department" />
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={deptData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} horizontal={false} />
+                  <XAxis type="number" tick={{ fill: COLORS.textMuted, fontSize: 10 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                  <YAxis dataKey="dept" type="category" tick={{ fill: COLORS.textMuted, fontSize: 11 }} width={100} />
+                  <Tooltip contentStyle={customTooltipStyle} formatter={v => [`$${v.toLocaleString()}`, "Revenue"]} />
+                  <Bar dataKey="revenue" fill={COLORS.accent} radius={[0, 4, 4, 0]} barSize={18} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: "rgba(255,255,255,0.2)" }}>
-            Powered by ReadyUp Analytics
+        )}
+
+        {activeTab === "customers" && (
+          <div>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 24 }}>
+              <KPI label="Active Members" value="15,260" change={3.4} />
+              <KPI label="Loyalty Penetration" value="62" suffix="%" change={5.1} />
+              <KPI label="Avg Member Spend" value="187" prefix="$" suffix="/mo" change={2.3} />
+              <KPI label="Churn Rate" value="8.2" suffix="%" change={-1.1} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20 }}>
+                <SectionHeader icon="◉" title="Loyalty Segments" subtitle="RFM-based segmentation" />
+                <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+                  <ResponsiveContainer width={180} height={180}>
+                    <PieChart>
+                      <Pie data={loyaltySegments} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" stroke="none">
+                        {loyaltySegments.map((s, i) => <Cell key={i} fill={s.color} />)}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{ flex: 1 }}>
+                    {loyaltySegments.map((s, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ width: 10, height: 10, borderRadius: 2, background: s.color }} />
+                          <span style={{ fontSize: 12, fontWeight: 600 }}>{s.name}</span>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>{s.value.toLocaleString()}</div>
+                          <div style={{ fontSize: 10, color: COLORS.textMuted }}>{s.spend}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20 }}>
+                <SectionHeader icon="🧺" title="Basket Affinity" subtitle="Top product pairings" />
+                {[
+                  { pair: "Artisan Bread → Imported Cheese", lift: "3.2x", freq: "840/mo" },
+                  { pair: "Organic Produce → Natural Deli", lift: "2.8x", freq: "1,240/mo" },
+                  { pair: "Wine → Charcuterie", lift: "4.1x", freq: "620/mo" },
+                  { pair: "Coffee Beans → Bakery Pastries", lift: "2.4x", freq: "1,080/mo" },
+                ].map((b, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: i < 3 ? `1px solid ${COLORS.border}` : "none" }}>
+                    <div style={{ fontSize: 12, fontWeight: 500 }}>{b.pair}</div>
+                    <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
+                      <span style={{ color: COLORS.purple, fontFamily: "'JetBrains Mono', monospace" }}>{b.lift}</span>
+                      <span style={{ color: COLORS.textMuted }}>{b.freq}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginTop: 16, background: COLORS.redMuted, border: `1px solid ${COLORS.red}30`, borderRadius: 10, padding: 20 }}>
+              <SectionHeader icon="🚨" title="Lapsed Member Recovery" subtitle="4,100 members inactive 90+ days — est. $385K annual revenue at risk" />
+              <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 4 }}>
+                Recommended: Targeted win-back campaign with personalized offers based on last purchase category. Projected recovery rate: 18-24% with $2.40 ROI per dollar spent.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "promos" && (
+          <div>
+            <SectionHeader icon="⚡" title="Promotional Performance" subtitle="Measuring true incremental lift vs. baseline demand" />
+            <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20, marginBottom: 20 }}>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={promoData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+                  <XAxis dataKey="promo" tick={{ fill: COLORS.textMuted, fontSize: 10 }} />
+                  <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                  <Tooltip contentStyle={customTooltipStyle} />
+                  <Bar dataKey="incremental" fill={COLORS.green} radius={[4, 4, 0, 0]} barSize={36} name="Incremental Revenue" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, overflow: "hidden" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                    {["Promotion", "Sales Lift", "ROI", "Incremental $", "Verdict"].map(h => (
+                      <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {promoData.map((p, i) => (
+                    <tr key={i} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                      <td style={{ padding: "12px 16px", fontWeight: 600 }}>{p.promo}</td>
+                      <td style={{ padding: "12px 16px", fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>+{p.lift}%</td>
+                      <td style={{ padding: "12px 16px", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: p.roi >= 2.5 ? COLORS.green : p.roi >= 1.5 ? COLORS.amber : COLORS.red }}>{p.roi}x</td>
+                      <td style={{ padding: "12px 16px", fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>${p.incremental.toLocaleString()}</td>
+                      <td style={{ padding: "12px 16px" }}>
+                        <span style={{
+                          background: p.roi >= 2.5 ? COLORS.greenMuted : p.roi >= 1.5 ? COLORS.amberMuted : COLORS.redMuted,
+                          color: p.roi >= 2.5 ? COLORS.green : p.roi >= 1.5 ? COLORS.amber : COLORS.red,
+                          padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600,
+                        }}>
+                          {p.roi >= 2.5 ? "Strong" : p.roi >= 1.5 ? "Moderate" : "Weak"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "labor" && (
+          <div>
+            <SectionHeader icon="⏱" title="Labor Optimization" subtitle="Transaction demand vs. staffing levels — Saturday model" />
+            <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20, marginBottom: 20 }}>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={laborData}>
+                  <defs>
+                    <linearGradient id="gDemand" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={COLORS.amber} stopOpacity={0.2} />
+                      <stop offset="100%" stopColor={COLORS.amber} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+                  <XAxis dataKey="hour" tick={{ fill: COLORS.textMuted, fontSize: 11 }} />
+                  <YAxis tick={{ fill: COLORS.textMuted, fontSize: 11 }} label={{ value: "Transactions / Staff", angle: -90, position: "insideLeft", fill: COLORS.textMuted, fontSize: 10 }} />
+                  <Tooltip contentStyle={customTooltipStyle} />
+                  <Area type="monotone" dataKey="demand" stroke={COLORS.amber} strokeWidth={2} fill="url(#gDemand)" name="Demand (Transactions)" />
+                  <Line type="monotone" dataKey="staffed" stroke={COLORS.accent} strokeWidth={2} dot={false} name="Staff Scheduled" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={{ background: COLORS.redMuted, border: `1px solid ${COLORS.red}30`, borderRadius: 10, padding: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.red, marginBottom: 6 }}>⚠ Understaffed Windows</div>
+                <div style={{ fontSize: 12, color: COLORS.text, lineHeight: 1.6 }}>
+                  11am–1pm and 4pm–7pm show demand exceeding staff by 20-38%. Estimated lost revenue from long checkout lines: <strong>$3,200/week</strong>.
+                </div>
+              </div>
+              <div style={{ background: COLORS.amberMuted, border: `1px solid ${COLORS.amber}30`, borderRadius: 10, padding: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.amber, marginBottom: 6 }}>💡 Overstaffed Windows</div>
+                <div style={{ fontSize: 12, color: COLORS.text, lineHeight: 1.6 }}>
+                  6am–7am and 8pm–9pm show 15-33% excess staffing. Reallocating these hours to peak windows saves est. <strong>$1,800/week</strong> with zero net labor cost change.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "stores" && (
+          <div>
+            <SectionHeader icon="⊞" title="Store Benchmarking" subtitle="Cross-location performance comparison" />
+            <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                    {["Metric", "Oakwood Plaza", "Far Hills Ave", "Springboro"].map(h => (
+                      <th key={h} style={{ padding: "14px 16px", textAlign: "left", fontSize: 11, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {storeComparison.map((row, i) => {
+                    const vals = [row.oakwood, row.farHills, row.springboro];
+                    const isLowerBetter = row.metric.includes("Labor") || row.metric.includes("Shrink");
+                    const nums = vals.map(v => parseFloat(v.replace(/[$%]/g, "")));
+                    const bestIdx = isLowerBetter ? nums.indexOf(Math.min(...nums)) : nums.indexOf(Math.max(...nums));
+                    const worstIdx = isLowerBetter ? nums.indexOf(Math.max(...nums)) : nums.indexOf(Math.min(...nums));
+                    return (
+                      <tr key={i} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                        <td style={{ padding: "14px 16px", fontWeight: 600 }}>{row.metric}</td>
+                        {vals.map((v, j) => (
+                          <td key={j} style={{
+                            padding: "14px 16px",
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: j === bestIdx ? COLORS.green : j === worstIdx ? COLORS.red : COLORS.text,
+                          }}>{v}</td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20 }}>
+              <SectionHeader icon="🎯" title="Key Insight" />
+              <div style={{ fontSize: 13, color: COLORS.text, lineHeight: 1.7 }}>
+                <strong>Springboro</strong> is underperforming across every metric. Shrink (5.1%) and labor cost (27.8%) are the primary margin drags. 
+                Loyalty penetration at 52% (vs. 74% at Far Hills) suggests a customer engagement gap. 
+                Recommended: Targeted loyalty enrollment campaign + shrink audit focused on dairy and floral departments.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{ marginTop: 40, paddingTop: 20, borderTop: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 11, color: COLORS.textMuted }}>
+            Demo data · ReadyUp Analytics © 2026
+          </div>
+          <div style={{ fontSize: 10, color: COLORS.textMuted, fontFamily: "'JetBrains Mono', monospace" }}>
+            Pipeline: POS → PostgreSQL → dbt → Dashboard · Refresh: 15min
           </div>
         </div>
       </div>
     </div>
   );
 }
-
-
-
-
