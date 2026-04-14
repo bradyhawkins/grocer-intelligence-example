@@ -107,8 +107,7 @@ const KPI = ({ label, value, change, prefix = "", suffix = "" }) => (
     )}
   </div>
 );
-
-const SectionHeader = ({ icon, title, subtitle }) => (
+const SectionHeader = ({ icon, title, subtitle = null }) => (
   <div style={{ marginBottom: 16 }}>
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
       <span style={{ fontSize: 16 }}>{icon}</span>
